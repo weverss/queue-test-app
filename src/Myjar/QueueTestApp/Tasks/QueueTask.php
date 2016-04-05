@@ -6,6 +6,7 @@ use DateTime;
 use Myjar\QueueTestApp\Calculations\InterestMaker;
 use Myjar\QueueTestApp\Calculations\Interest;
 use PhpAmqpLib\Connection\AMQPConnection;
+use PhpAmqpLib\Message\AMQPMessage;
 
 class QueueTask
 {
@@ -15,6 +16,8 @@ class QueueTask
     const LOG_TYPE_RECEIVED = 'received';
     const LOG_TYPE_PUBLISHED = 'published';
 
+    const DELIVERY_MODE_PERSITENT = 2;
+
     protected $host = 'impact.ccat.eu';
     protected $port = '5672';
     protected $user = 'myjar';
@@ -23,16 +26,20 @@ class QueueTask
     protected $channel;
     protected $connection;
 
-    protected $token = 'weverss';
+    protected $token = 'wevers';
 
     public function run()
     {
         $this->channel()->basic_consume($this::INTEREST_QUEUE, $this->token, null, null, null, null, function ($msg) {
+            $interest = InterestMaker::create($msg->body);
+
+            if (!$interest->isValid()) {
+                return;
+            }
+
             $this->log($this::LOG_TYPE_RECEIVED, $msg->body);
 
-            $interest = InterestMaker::create($msg->body);
             $interest->solve();
-
             $this->publishSolvedInterest($interest);
         });
 
@@ -46,11 +53,22 @@ class QueueTask
         $data = $interest->getInterestData();
         $data['token'] = $this->token;
 
-        $message = json_encode($data);
+        $amqpMessage = $this->createAmqpMessage($data);
+        $this->channel()->basic_publish($amqpMessage, null, $this::SOLVED_INTEREST_QUEUE);
 
-        $this->channel()->basic_publish($message, null, $this::SOLVED_INTEREST_QUEUE);
+        $this->log($this::LOG_TYPE_PUBLISHED, $amqpMessage->body);
+    }
 
-        $this->log($this::LOG_TYPE_PUBLISHED, $message);
+    protected function createAmqpMessage(array $data)
+    {
+        $body = json_encode($data);
+
+        $options = [
+            'content_type' => 'text/json',
+            'delivery_mode' => $this::DELIVERY_MODE_PERSITENT
+        ];
+
+        return new AMQPMessage($body, $options);
     }
 
     protected function log($type, $message)
