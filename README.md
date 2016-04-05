@@ -1,1 +1,11 @@
-# queue-test-app
+# Queue Test App
+
+Usage:
+
+```
+# install
+composer install
+
+# run
+php application.php
+```
