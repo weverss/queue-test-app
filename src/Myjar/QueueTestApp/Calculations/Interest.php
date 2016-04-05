@@ -4,6 +4,9 @@ namespace Myjar\QueueTestApp\Calculations;
 
 class Interest
 {
+    const DIVISIBLE_BY_THREE = 3;
+    const DIVISIBLE_BY_FIVE = 5;
+
     const DIVISIBLE_BY_THREE_INTEREST_RATE = 1;
     const DIVISIBLE_BY_FIVE_INTEREST_RATE = 2;
     const DIVISIBLE_BY_BOTH_THREE_AND_FIVE_INTEREST_RATE = 3;
@@ -16,62 +19,103 @@ class Interest
     public $interest;
     public $totalSum;
 
+    public function isValid()
+    {
+        return $this->sum > 0 && $this->days > 0;
+    }
+
     public function solve()
     {
-        $this->interest = $this->calculateInterest();
-        $this->totalSum = $this->calculateTotalSum();
+        $this->interest = floatval($this->calculateInterest());
+        $this->totalSum = floatval($this->calculateTotalSum());
 
         return $this;
     }
 
     protected function calculateInterest()
     {
-        $interest = 0;
+        $interest = $this->getDayInterest($this::NOT_DIVISIBLE_BY_EITHER_THREE_OR_FIVE_INTEREST_RATE)
+            * $this->getDaysNotDivisibleByBothThreeAndFive();
 
-        if (!$this->days) {
-            return $interest;
-        }
+        $interest += $this->getDayInterest($this::DIVISIBLE_BY_THREE_INTEREST_RATE)
+            * $this->getDaysDivisibleByOnlyThree();
 
-        for ($day = 1; $day <= $this->days; $day++) {
-            $interest += $this->calculateDayInterest($day);
-        }
+        $interest += $this->getDayInterest($this::DIVISIBLE_BY_FIVE_INTEREST_RATE)
+            * $this->getDaysDivisibleByOnlyFive();
+
+        $interest += $this->getDayInterest($this::DIVISIBLE_BY_BOTH_THREE_AND_FIVE_INTEREST_RATE)
+            * $this->getDaysDivisibleByBothThreeAndFive();
 
         return $interest;
     }
 
-    protected function calculateDayInterest($day)
+    protected function getDayInterest($interestRate)
     {
-        $interestRate = $this->getDayInterestRate($day);
         $interest = $this->sum * $interestRate / 100;
 
         return round($interest, $this::INTEREST_DECIMAL_DIGITS);
     }
 
-    protected function getDayInterestRate($day)
+    protected function getDaysNotDivisibleByBothThreeAndFive()
     {
-        if ($this->isDayDivisibleByThree($day) && $this->isDayDivisibleByFive($day)) {
-            return $this::DIVISIBLE_BY_BOTH_THREE_AND_FIVE_INTEREST_RATE;
-        }
-
-        if ($this->isDayDivisibleByThree($day)) {
-            return $this::DIVISIBLE_BY_THREE_INTEREST_RATE;
-        }
-
-        if ($this->isDayDivisibleByFive($day)) {
-            return $this::DIVISIBLE_BY_FIVE_INTEREST_RATE;
-        }
-
-        return $this::NOT_DIVISIBLE_BY_EITHER_THREE_OR_FIVE_INTEREST_RATE;
+        return $this->days
+            - $this->getDaysDivisibleByBothThreeAndFive()
+            - $this->getDaysDivisibleByOnlyThree()
+            - $this->getDaysDivisibleByOnlyFive();
     }
 
-    protected function isDayDivisibleByThree($day)
+    protected function getDaysDivisibleByOnlyThree()
     {
-        return $day % 3 === 0;
+        return $this->getDaysDivisibleBy($this::DIVISIBLE_BY_THREE) - $this->getDaysDivisibleByBothThreeAndFive();
     }
 
-    protected function isDayDivisibleByFive($day)
+    protected function getDaysDivisibleByOnlyFive()
     {
-        return $day % 5 === 0;
+        return $this->getDaysDivisibleBy($this::DIVISIBLE_BY_FIVE) - $this->getDaysDivisibleByBothThreeAndFive();
+    }
+
+    protected function getDaysDivisibleByBothThreeAndFive()
+    {
+        $greatestCommonDivisor = $this::DIVISIBLE_BY_THREE * $this::DIVISIBLE_BY_FIVE;
+
+        return $this->getDaysDivisibleBy($greatestCommonDivisor);
+    }
+
+
+    protected function calculateDayInterest($rate)
+    {
+        $interest = $this->sum * $rate / 100;
+
+        return round($interest, $this::INTEREST_DECIMAL_DIGITS);
+    }
+
+    protected function getDaysDivisibleBy($divisor)
+    {
+        if (!$this->hasAnyDayDivisibleBy($divisor)) {
+            return 0;
+        }
+
+        return $this->getHighestDivisibleDay($divisor) / $divisor;
+    }
+
+    protected function hasAnyDayDivisibleBy($divisor)
+    {
+        if (abs($this->days) >= $divisor) {
+            return true;
+        }
+
+        return false;
+    }
+
+    protected function getHighestDivisibleDay($divisor)
+    {
+        $day = abs($this->days);
+
+        while ($day % $divisor) {
+            $day--;
+        }
+
+        return $day;
     }
 
     protected function calculateTotalSum()
