@@ -6,16 +6,16 @@ class InterestMaker
 {
     public static function create($interestMessage)
     {
+        $interest = new Interest();
         $interestData = json_decode($interestMessage, true);
 
-        if (!isset($interestData['sum']) || !isset($interestData['days'])) {
-            throw new Exception("Invalid interest message $interestMessage!");
+        if (isset($interestData['sum'])) {
+            $interest->sum = floatval($interestData['sum']);
         }
 
-        $interest = new Interest();
-
-        $interest->sum = $interestData['sum'];
-        $interest->days = $interestData['days'];
+        if (isset($interestData['days'])) {
+            $interest->days = intval($interestData['days']);
+        }
 
         return $interest;
     }
