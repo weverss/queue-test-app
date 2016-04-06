@@ -2,6 +2,5 @@ language: php
 php:
   - "5.4"
 install:
-  - "sudo apt-get install composer"
   - "composer install"
 script: php application.php
